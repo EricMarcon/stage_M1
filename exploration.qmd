@@ -1,0 +1,25 @@
+---
+title: "Exploration"
+author: "Eric Marcon"
+format: 
+  html: default
+  pdf: default
+editor: visual
+---
+
+## Paracou 6
+
+### Biodiversité
+
+Nombre d'espèces dans la parcelle:
+
+```{r}
+library("divent")
+div_richness(paracou_6_abd, estimator = "naive")
+```
+
+Diagramme rang-abondance :
+```{r}
+autoplot(paracou_6_abd)
+```
+
