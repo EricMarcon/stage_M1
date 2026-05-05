@@ -5,21 +5,133 @@ format:
   html: default
   pdf: default
 editor: visual
+bibliography: references.bib
 ---
 
 ## Paracou 6
 
-### Biodiversité
-
-Nombre d'espèces dans la parcelle:
+### Abondances
 
 ```{r}
+#| message: false
+library("tidyverse")
 library("divent")
-div_richness(paracou_6_abd, estimator = "naive")
+paracou_6_abd %>% 
+  # Regroupement des sous-parcelles
+  metacommunity(name = "Paracou_6") ->
+  paracou_6
 ```
 
-Diagramme rang-abondance :
+### Jeu de points
+
 ```{r}
-autoplot(paracou_6_abd)
+paracou_6_wmppp %>% 
+  autoplot() +
+  labs(color = "Espèce", size = "Surface terrière")
 ```
 
+## Biodiversité
+
+### Diagramme rang-abondance
+
+```{r}
+autoplot(paracou_6)
+```
+
+### Nombre d'espèces dans la parcelle
+
+```{r}
+# Standard
+div_richness(paracou_6, estimator = "naive")
+```
+L'estimateur naïf ne tente pas d'extrapoler la diversité mais se limite aux données observées.
+
+Pour obtenir un nombre plutôt qu'un tableau, utiliser l'argument `as_numeric`.
+
+```{r}
+div_richness(paracou_6, estimator = "naive", as_numeric = TRUE) + 0
+```
+
+### Shannon
+
+#### Entropie
+
+```{r}
+ent_shannon(paracou_6, estimator = "naive")
+```
+
+#### Nombre de Hill
+
+```{r}
+div_hill(paracou_6, q = 1, estimator = "naive")
+```
+
+### Simpson
+
+#### Entropie
+
+```{r}
+ent_simpson(paracou_6, estimator = "naive")
+```
+
+#### Nombre de Hill
+
+```{r}
+div_hill(paracou_6, q = 2, estimator = "naive")
+```
+
+### Profil de diversité
+
+```{r}
+profile_hill(paracou_6, estimator = "naive") %>% 
+  autoplot() +
+  theme(legend.position = "none")
+```
+
+## Statistiques spatiales
+
+### Préalable : sélection dans R
+
+```{r}
+# création d'un vecteur
+a <- 11:20
+# Tester si a > 15 et stocker le résultat dans un vecteur logique
+est_pg15 <- (a > 15)
+# Sélection les valeurs pour lesquelles le test était vrai
+a[est_pg15]
+```
+
+### Manipulation d'un wmppp
+
+Sélection d'espèces.
+
+```{r}
+# Vecteur de test
+est_wapa <- str_detect(paracou_6_wmppp$marks$PointType, "Fabaceae_Eperua_")
+# Filtrage
+paracou_6_wmppp[est_wapa] %>% 
+  autoplot()
+```
+
+### K de @ripley1976
+
+Les wapas sont-ils distribués aléatoirement ?
+
+```{r}
+library("dbmss")
+# Sélection des wapas
+paracou_6_wmppp[est_wapa] %>% 
+  # Calcul de K et de l'envelope de confiance de sa distribution 
+  # sous l'hypothèse nulle d'un processus de Poisson
+  KEnvelope() -> 
+  # Mémorisation pour permettre de tester les options graphiques
+  # sans tout recalculer
+  k_wapa
+# Figure
+k_wapa %>% 
+  # Transformer K (division par pi r²), en fonction de r
+  autoplot(fmla = ./(pi*r^2) ~ r) +
+  # Limiter l'axe des y pour voir les détails
+  scale_y_continuous(limits = c(0, 2.5))
+```
+Les wapas sont significativement agrégés entre 7-8 mètres et 45 mètres.
