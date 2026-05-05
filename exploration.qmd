@@ -2,7 +2,8 @@
 title: "Exploration"
 author: "Eric Marcon"
 format: 
-  html: default
+  html: 
+    toc: true
   pdf: default
 editor: visual
 bibliography: references.bib
@@ -25,6 +26,7 @@ paracou_6_abd %>%
 ### Jeu de points
 
 ```{r}
+#| message: false
 paracou_6_wmppp %>% 
   autoplot() +
   labs(color = "Espèce", size = "Surface terrière")
@@ -44,6 +46,7 @@ autoplot(paracou_6)
 # Standard
 div_richness(paracou_6, estimator = "naive")
 ```
+
 L'estimateur naïf ne tente pas d'extrapoler la diversité mais se limite aux données observées.
 
 Pour obtenir un nombre plutôt qu'un tableau, utiliser l'argument `as_numeric`.
@@ -134,4 +137,7 @@ k_wapa %>%
   # Limiter l'axe des y pour voir les détails
   scale_y_continuous(limits = c(0, 2.5))
 ```
+
 Les wapas sont significativement agrégés entre 7-8 mètres et 45 mètres.
+
+## Références
