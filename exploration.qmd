@@ -52,7 +52,7 @@ L'estimateur naïf ne tente pas d'extrapoler la diversité mais se limite aux do
 Pour obtenir un nombre plutôt qu'un tableau, utiliser l'argument `as_numeric`.
 
 ```{r}
-div_richness(paracou_6, estimator = "naive", as_numeric = TRUE) + 0
+div_richness(paracou_6, estimator = "naive", as_numeric = TRUE)
 ```
 
 ### Shannon
@@ -139,5 +139,169 @@ k_wapa %>%
 ```
 
 Les wapas sont significativement agrégés entre 7-8 mètres et 45 mètres.
+
+### K intertype
+
+Comment cohabitent les deux espèces de wapa ?
+
+```{r}
+# Inutile de filtrer l'espèce
+paracou_6_wmppp %>% 
+  # Calcul de K et de l'envelope de confiance de sa distribution 
+  # sous l'hypothèse nulle d'indépendance
+  KEnvelope(
+    # Centre des cercles
+    ReferenceType = "Fabaceae_Eperua_grandiflora",
+    # Voisins
+    NeighborType =  "Fabaceae_Eperua_falcata",
+    ) -> 
+  # Mémorisation pour permettre de tester les options graphiques
+  # sans tout recalculer
+  k_wapa_inter
+# Figure
+k_wapa_inter %>% 
+  # Transformer K (division par pi r²), en fonction de r
+  autoplot(fmla = ./(pi*r^2) ~ r) +
+  # Légende illisible
+  theme(legend.position = "none") + 
+  # Axe des y trop long
+  labs(y = expression(K / (pi * r^2))) +
+  # Limiter l'axe des y pour voir les détails
+  scale_y_continuous(limits = c(0, 2.5))
+```
+
+Les espèces se repoussent à grande distance (au-delà de 30 mètres), ce qui correspond plus probablement à des différences de préférence environnementales qu'à des interactions.
+
+## Diversité à distance
+
+### Calcul
+
+```{r}
+library("divent")
+# Generate a random community
+X <- rspcommunity(1, size = 50, species_number = 3)
+autoplot(X)
+# Calculate the accumulation of richness
+accum_n <- accum_sp_hill(X)
+autoplot(accum_n, q = 0)
+# along distance
+accum_r <- accum_sp_hill(
+  X, 
+  # Richesse
+  orders = 0, 
+  # Distances
+  r = seq(0, .5, .05) # ignoré : bug à corriger,
+  # Correction des effets de bord
+  # correction = "extrapolation"
+)
+autoplot(accum_r, q = 0)
+```
+
+Question : faut-il ajouter une option à la fonction pour ignorer l'individu central dans la diversité à distance ?
+Il est ignoré dans le calcul de la diversité en fonction du nombre de voisins.
+
+A faire : corriger le bug de la correction des effets de bord.
+
+
+### Comparaison à une hypothèse nulle
+
+L'accumulation est-elle plus lente que sous l'hypothèse de distribution complètement aléatoire des points ?
+
+```{r}
+accum_sp_hill(
+  X, 
+  # Richesse
+  orders = 0,
+  # Distances
+  r = seq(0, .5, .05),
+  # Hypothèse nulle
+  h0 = "binomial"
+) -> 
+  richesse_distance_h0
+richesse_distance_h0 %>% 
+  autoplot()
+```
+
+A faire : autoplot doit afficher toutes les courbes si q n'est pas précisé, plutôt que seulement la première.
+
+### Shimatani (2001)
+
+```{r}
+X %>% 
+  ent_sp_simpsonEnvelope() %>% 
+  autoplot()
+```
+
+### Manques
+
+Diversité phylogénétique à distance.
+> calculer l'entropie phygénétique au lieu de l'entropie de Tsallis.
+
+
+ISAR : courbes individuelles.
+
+```{r}
+accum_sp_hill(
+  X, 
+  # Richesse
+  orders = c(0, 1),
+  # Distances
+  r = seq(0, .5, .05),
+  individual = TRUE
+) ->
+  richesse_distance
+```
+
+Contenu de l'objet "accumulation spatiale":
+
+```{r}
+# Jeu de points
+richesse_distance$X %>% autoplot()
+```
+
+```{r}
+# Valeurs en fonction de q et r
+richesse_distance$accumulation
+```
+
+```{r}
+# Voisinages (deux premiers points)
+richesse_distance$neighborhoods[, , 1:2]
+```
+
+### ISAR
+
+Trouver les points de l'espèce 1.
+
+```{r}
+# Vecteur de sélection
+est_sp1 <- (richesse_distance$X$marks$PointType == "sp_1")
+# Voisinages des points de l'espèce 1, richesse seulement
+richesse_distance$neighborhoods[1, , est_sp1] %>% 
+  rowMeans() -> 
+  isar_sp1
+tibble(
+  distance = names(isar_sp1),
+  richesse = isar_sp1
+) %>% 
+  ggplot(aes(x = distance, y  = richesse)) +
+  geom_point()
+```
+
+A faire : écrire une fonction ISAR() qui prend en entrée un objet sp_accum_entropy et comme argument q et le nom de l'espèce.
+En sortie : un objet sp_accum
+
+
+Hypothèse nulle de l'ISAR:
+
+```{r}
+richesse_distance_h0$accumulation
+```
+
+A faire : documenter dans accum_sp que $accumulation contient en couche 1 la valeur observée et en couches 2, 3 et 4 les valeurs théoriques et les limites de l'enveloppe de confiance.
+
+Dans l'ISAR, conserver l'intervalle de confiance de H0 pour la figure.
+
+A faire : ajouter l'hypothèse nulle de localisation aléatoire de tous les points sauf l'espèce étudiée pour prendre en compte sa structure spatiale.
 
 ## Références
