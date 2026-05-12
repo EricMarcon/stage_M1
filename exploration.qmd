@@ -190,18 +190,15 @@ accum_r <- accum_sp_hill(
   # Richesse
   orders = 0, 
   # Distances
-  r = seq(0, .5, .05) # ignoré : bug à corriger,
+  r = seq(0, .5, .05) ,
   # Correction des effets de bord
-  # correction = "extrapolation"
+  correction = "extrapolation"
 )
 autoplot(accum_r, q = 0)
 ```
 
 Question : faut-il ajouter une option à la fonction pour ignorer l'individu central dans la diversité à distance ?
 Il est ignoré dans le calcul de la diversité en fonction du nombre de voisins.
-
-A faire : corriger le bug de la correction des effets de bord.
-
 
 ### Comparaison à une hypothèse nulle
 
@@ -235,8 +232,7 @@ X %>%
 ### Manques
 
 Diversité phylogénétique à distance.
-> calculer l'entropie phygénétique au lieu de l'entropie de Tsallis.
-
+\> calculer l'entropie phygénétique au lieu de l'entropie de Tsallis.
 
 ISAR : courbes individuelles.
 
@@ -291,14 +287,11 @@ tibble(
 A faire : écrire une fonction ISAR() qui prend en entrée un objet sp_accum_entropy et comme argument q et le nom de l'espèce.
 En sortie : un objet sp_accum
 
-
 Hypothèse nulle de l'ISAR:
 
 ```{r}
 richesse_distance_h0$accumulation
 ```
-
-A faire : documenter dans accum_sp que $accumulation contient en couche 1 la valeur observée et en couches 2, 3 et 4 les valeurs théoriques et les limites de l'enveloppe de confiance.
 
 Dans l'ISAR, conserver l'intervalle de confiance de H0 pour la figure.
 
