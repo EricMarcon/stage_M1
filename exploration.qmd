@@ -219,8 +219,6 @@ richesse_distance_h0 %>%
   autoplot()
 ```
 
-A faire : autoplot doit afficher toutes les courbes si q n'est pas précisé, plutôt que seulement la première.
-
 ### Shimatani (2001)
 
 ```{r}
@@ -276,10 +274,12 @@ est_sp1 <- (richesse_distance$X$marks$PointType == "sp_1")
 richesse_distance$neighborhoods[1, , est_sp1] %>% 
   rowMeans() -> 
   isar_sp1
+# Mise en forme des données.
 tibble(
   distance = names(isar_sp1),
   richesse = isar_sp1
 ) %>% 
+  # Figure
   ggplot(aes(x = distance, y  = richesse)) +
   geom_point()
 ```
@@ -296,5 +296,94 @@ richesse_distance_h0$accumulation
 Dans l'ISAR, conserver l'intervalle de confiance de H0 pour la figure.
 
 A faire : ajouter l'hypothèse nulle de localisation aléatoire de tous les points sauf l'espèce étudiée pour prendre en compte sa structure spatiale.
+
+## Tout Paracou
+
+### Chargement des données
+
+Lecture du fichier texte contenant les données
+
+```{r}
+read_csv2(file = "data/Paracou2015.csv") ->
+  paracou2015
+```
+
+### Manipulation des données
+
+Filtrage et sélection :
+
+```{r}
+paracou2015 %>% 
+  # Filtrer la parcelle 6
+  filter(Plot == 6) %>% 
+  # Sélection des colonnes utiles
+  select(idTree, Xfield, Yfield, BinomialName, CircCorr) %>% 
+  # Calcul de la surface terrière en mètres carrés
+  mutate(G = pi * (CircCorr / pi / 2)^2 / 10000) ->
+  paracou2015_6
+```
+
+Regroupement :
+
+```{r}
+paracou2015_6 %>% 
+  # Regrouper par espèce
+  group_by(BinomialName) %>% 
+  # Calculer le nombre et la surface terrière totale
+  summarise(nombre = n(), surface_terriere = sum(G)) %>% 
+  # Trier par abondance décroissante
+  arrange(desc(nombre))
+```
+
+### Création d'un wmppp
+
+```{r}
+library("dbmss") 
+paracou2015_6 %>%    
+  # Renommer les colonnes   
+  rename(     
+    X = Xfield,      
+    Y = Yfield,      
+    PointType = BinomialName,      
+    PointWeight = G
+  ) %>%
+  wmppp(
+    window = owin(xrange = c(0, 250), yrange = c(0, 250)),     
+    unitname = c("metre", "metres") 
+  ) %>% 
+  # Déplacement les points pour éviter la superposition
+  rjitter(radius = 0.01) ->
+  paracou2015_6_wmppp  
+
+# Carte
+autoplot(paracou2015_6_wmppp)
+```
+
+### Création d'un objet spp
+
+Equivalent d'un wmppp pour le package ads
+
+```{r}
+library("ads")
+paracou2015_6_spp <- spp(
+  x = paracou2015_6_wmppp$x,
+  y = paracou2015_6_wmppp$y,
+  window = owin2swin(paracou2015_6_wmppp$window),
+  marks = paracou2015_6_wmppp$marks$PointType
+)
+
+# Calcul de K de Ripley
+paracou2015_6_spp %>% 
+  kfun(upto = 100, by = 10) %>% 
+  plot()
+```
+
+### Eviter les points superposés
+
+```{r}
+paracou2015_6_wmppp %>% 
+  rjitter() %>% 
+  autoplot()
+```
 
 ## Références
