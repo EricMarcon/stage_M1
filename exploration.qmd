@@ -39,10 +39,14 @@ Création d'une phylogénie à partir de la taxonomie.
 ```{r}
 library("ape")
 read_csv2("data/Paracou2015.csv") %>% 
-  # Ne conserver que la botanique
-  select(Family, Genus, BinomialName) %>% 
   # Suppression des indéterminés
   filter(BinomialName != "Indet.") %>% 
+  # Ne conserver qu'une seule ligne par espèce
+  group_by(Family, Genus, BinomialName) %>% 
+  # Comptage pour permettre le regroupement
+  summarise(abondance = n()) %>% 
+  # Suppression des groupes
+  ungroup() %>% 
   # Nécessite des facteurs
   mutate_if(is.character, as.factor) %>% 
   # Création de la phylogénie (syntaxe du package ape)
@@ -54,20 +58,40 @@ read_csv2("data/Paracou2015.csv") %>%
   # Fusionner les branches sans divergence 
   collapse.singles() ->
   Paracou2015_phylo
+
+# Nombre d'espèces
+Paracou2015_phylo$tip.label %>% 
+  length()
 ```
 
-L'affichage est très lent (plusieurs minutes) avec le package ggtree. La méthode `plot()` échoue par manque de mémoire : l'arbre est très grand.
+Affichage avec le package ggtree.
 
 ```{r}
-
-# Affichage (très lent : )
 if (!require("ggtree")) {
   # Le package "ggtree" est sur Bioconductor, pas sur CRAN
   # Nécessite le package "BiocManager", sur CRAN
   BiocManager::install("ggtree")
 }
-ggtree(Paracou2015_phylo, layout = "circular")
+Paracou2015_phylo %>% 
+  ggtree(layout = "circular")
 ```
+
+La fonction `cophenetic()` du package ape calcule des distances entre les feuilles de l'arbre.
+
+```{r}
+Paracou2015_phylo %>% 
+  # Matrice de distances
+  cophenetic() %>% 
+  # Les distances sont comptées deux fois: les diviser par 2
+  `/`(2) %>% 
+  # Demi-matrice (objet de type dist pour ads)
+  as.dist() ->
+  Paracou2015_phylo_dist
+
+# Vérification des valeurs de distances
+hist(Paracou2015_phylo_dist)
+``` 
+La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
 
 
 ## Biodiversité
