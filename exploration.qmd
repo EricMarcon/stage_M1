@@ -32,68 +32,6 @@ paracou_6_wmppp %>%
   labs(color = "Espèce", size = "Surface terrière")
 ```
 
-### Phylogénie
-
-Création d'une phylogénie à partir de la taxonomie.
-
-```{r}
-library("ape")
-read_csv2("data/Paracou2015.csv") %>% 
-  # Suppression des indéterminés
-  filter(BinomialName != "Indet.") %>% 
-  # Ne conserver qu'une seule ligne par espèce
-  group_by(Family, Genus, BinomialName) %>% 
-  # Comptage pour permettre le regroupement
-  summarise(abondance = n()) %>% 
-  # Suppression des groupes
-  ungroup() %>% 
-  # Nécessite des facteurs
-  mutate_if(is.character, as.factor) %>% 
-  # Création de la phylogénie (syntaxe du package ape)
-  {as.phylo(~Family/Genus/BinomialName, data = ., collapse = FALSE)} %>% 
-  # Longueurs des branches identiques
-  compute.brlen(method = 1) %>% 
-  # Transformer les multichotomies en dichotomies
-  multi2di() %>%  
-  # Fusionner les branches sans divergence 
-  collapse.singles() ->
-  Paracou2015_phylo
-
-# Nombre d'espèces
-Paracou2015_phylo$tip.label %>% 
-  length()
-```
-
-Affichage avec le package ggtree.
-
-```{r}
-if (!require("ggtree")) {
-  # Le package "ggtree" est sur Bioconductor, pas sur CRAN
-  # Nécessite le package "BiocManager", sur CRAN
-  BiocManager::install("ggtree")
-}
-Paracou2015_phylo %>% 
-  ggtree(layout = "circular")
-```
-
-La fonction `cophenetic()` du package ape calcule des distances entre les feuilles de l'arbre.
-
-```{r}
-Paracou2015_phylo %>% 
-  # Matrice de distances
-  cophenetic() %>% 
-  # Les distances sont comptées deux fois: les diviser par 2
-  `/`(2) %>% 
-  # Demi-matrice (objet de type dist pour ads)
-  as.dist() ->
-  Paracou2015_phylo_dist
-
-# Vérification des valeurs de distances
-hist(Paracou2015_phylo_dist)
-``` 
-La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
-
-
 ## Biodiversité
 
 ### Diagramme rang-abondance
@@ -292,7 +230,7 @@ X %>%
 ### Manques
 
 Diversité phylogénétique à distance.
-\> calculer l'entropie phygénétique au lieu de l'entropie de Tsallis.
+\> calculer l'entropie phylogénétique au lieu de l'entropie de Tsallis.
 
 ISAR : courbes individuelles.
 
@@ -447,5 +385,118 @@ paracou2015_6_wmppp %>%
   rjitter() %>% 
   autoplot()
 ```
+
+
+### Cas particulier de la parcelle 16
+
+La p16 est découpée en 25 carrés d'un hectare et les coordonnées de terrain sont relatives aux carrés, pas à la parcelle.
+Il faut donc les recalculer dans le référentiel de la parcelle.
+
+```{r}
+paracou2015 %>% 
+  # Filtrer la parcelle 6
+  filter(Plot == 16) %>% 
+  # Les carrés sont numérotés de gauche à droite et haut en bas
+  mutate(
+    # Renuméroter les carrés de 0 à 24 (retirer 1)
+    # Ajouter 0, 100,..., 400m à Xfield
+    # Revenir à 0 tous les 5 carrés
+    Xplot = 100 * ((SubPlot - 1) %% 5) + Xfield,
+    # Ajouter 400, 300,..., 0 à Yfield pour les 5 premiers,
+    # 5 suivants, ..., carrés.
+    Yplot = 100 * (4 - (SubPlot - 1) %/% 5) + Yfield
+  ) %>% 
+  # Sélection des colonnes utiles
+  # Garder les UTM pour vérification
+  select(idTree, Xplot, Yplot, Xutm, Yutm, BinomialName, CircCorr) %>% 
+  # Calcul de la surface terrière en mètres carrés
+  mutate(G = pi * (CircCorr / pi / 2)^2 / 10000) ->
+  paracou2015_16
+
+paracou2015_16 %>%
+  # Renommer les colonnes   
+  rename(     
+    X = Xplot,
+    Y = Yplot,  
+    PointType = BinomialName,      
+    PointWeight = G
+  ) %>%
+  wmppp(
+    window = owin(xrange = c(0, 500), yrange = c(0, 500)),     
+    unitname = c("metre", "metres") 
+  ) %>% 
+  # Déplacement les points pour éviter la superposition
+  rjitter(radius = 0.01) ->
+  paracou2015_16_wmppp 
+
+autoplot(paracou2015_16_wmppp)
+
+# Vérification de la cohérence des coordonnées
+# par la corrélation entre les coordonnées locales et UTM
+cor(paracou2015_16$Xplot, paracou2015_16$Xutm)
+cor(paracou2015_16$Yplot, paracou2015_16$Yutm)
+```
+
+## Phylogénie
+
+Création d'une phylogénie à partir de la taxonomie.
+
+```{r}
+library("ape")
+read_csv2("data/Paracou2015.csv") %>% 
+  # Suppression des indéterminés
+  filter(BinomialName != "Indet.") %>% 
+  # Ne conserver qu'une seule ligne par espèce
+  group_by(Family, Genus, BinomialName) %>% 
+  # Comptage pour permettre le regroupement
+  summarise(abondance = n()) %>% 
+  # Suppression des groupes
+  ungroup() %>% 
+  # Nécessite des facteurs
+  mutae_if(is.character, as.factor) %>% 
+  # Création de la phylogénie (syntaxe du package ape)
+  {as.phylo(~Family/Genus/BinomialName, data = ., collapse = FALSE)} %>% 
+  # Longueurs des branches identiques
+  compute.brlen(method = 1) %>% 
+  # Transformer les multichotomies en dichotomies
+  multi2di() %>%  
+  # Fusionner les branches sans divergence 
+  collapse.singles() ->
+  Paracou2015_phylo
+
+# Nombre d'espèces
+Paracou2015_phylo$tip.label %>% 
+  length()
+```
+
+Affichage avec le package ggtree.
+
+```{r}
+if (!require("ggtree")) {
+  # Le package "ggtree" est sur Bioconductor, pas sur CRAN
+  # Nécessite le package "BiocManager", sur CRAN
+  BiocManager::install("ggtree")
+}
+Paracou2015_phylo %>% 
+  ggtree(layout = "circular")
+```
+
+La fonction `cophenetic()` du package ape calcule des distances entre les feuilles de l'arbre.
+
+```{r}
+Paracou2015_phylo %>% 
+  # Matrice de distances
+  cophenetic() %>% 
+  # Les distances sont comptées deux fois: les diviser par 2
+  `/`(2) %>% 
+  # Demi-matrice (objet de type dist pour ads)
+  as.dist() ->
+  Paracou2015_phylo_dist
+
+# Vérification des valeurs de distances
+hist(Paracou2015_phylo_dist)
+``` 
+La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
+
 
 ## Références
