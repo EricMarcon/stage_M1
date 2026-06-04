@@ -310,6 +310,8 @@ read_csv2(file = "data/Paracou2015.csv") ->
 
 ### Manipulation des données
 
+Objectif de cette section : découverte des commandes du tiduverse.
+
 Filtrage et sélection :
 
 ```{r}
@@ -335,20 +337,72 @@ paracou2015_6 %>%
   arrange(desc(nombre))
 ```
 
+### Nom binomial des espèces
+
+Les espèces indéterminées sont appelées "Indet." sans référence à leur genre.
+Ce n'est pas le bon choix pour la suite : la phylogénie ne pourra pas être construite avec des noms de feuilles.
+
+```{r}
+read_csv2("data/Paracou2015.csv") %>%
+  # Filtrer seulement les "Indet."
+  filter(BinomialName == "Indet.") %>%
+  # Comptage des arbres et affichage
+  group_by(Family, Genus) %>% 
+  summarise(abondance = n())
+```
+
+Il y a 123 espèces indéterminées différentes, dont la majorité est déterminée au genre, quelques unes à la famille (genre "Indet.Famille") et aussi 1310 arbres "triple indet." (famille "Indet.", genre "Indet.Indet.").
+
+Il faut reconstruire les noms binomiaux en combinant genre et espèce, même pour les indéterminées: leur nom sera "Genre Indet.", "Indet.Famille Indet" ou "Indet.Indet. Indet.".
+
+### Lecture et préparation de l'inventaire de Paracou
+
+Recréation de `paracou2015` :
+
+- corrections des noms binomiaux,
+- suppression des arbres morts,
+- calcul une des surface terrière des arbres.
+
+```{r}
+read_csv2(file = "data/Paracou2015.csv") %>% 
+  # Noms binomiaux
+  mutate(BinomialName = paste(Genus, Species)) %>% 
+  # Suppression des arbres morts
+  filter(CodeAlive == 1) %>% 
+  # Sélection des colonnes utiles
+  select(
+    # Parcelle (pour créer les jeux de points)
+    Plot, 
+    # Carré (pour la p16)
+    SubPlot, 
+    # Identifiant et position de chaque arbre, UTM pour p16
+    idTree, Xfield, Yfield, Xutm, Yutm,
+    # Botanique
+    Family, Genus, Species, BinomialName, 
+    # Circonférence
+    CircCorr
+  ) %>%
+  # Calcul de la surface terrière en mètres carrés
+  mutate(G = pi * (CircCorr / pi / 2)^2 / 10000) ->
+  paracou2015
+```
+
 ### Création d'un wmppp
 
 ```{r}
 library("dbmss") 
-paracou2015_6 %>%    
+paracou2015 %>%
+  # Choix de la parcelle (sauf parcelle 16)
+  filter(Plot == 6) %>% 
   # Renommer les colonnes   
   rename(     
-    X = Xfield,      
-    Y = Yfield,      
-    PointType = BinomialName,      
+    X = Xfield,
+    Y = Yfield,
+    PointType = BinomialName,
     PointWeight = G
   ) %>%
   wmppp(
-    window = owin(xrange = c(0, 250), yrange = c(0, 250)),     
+    window = owin(xrange = c(0, 250), yrange = c(0, 250)),
     unitname = c("metre", "metres") 
   ) %>% 
   # Déplacement les points pour éviter la superposition
@@ -377,15 +431,6 @@ paracou2015_6_spp %>%
   kfun(upto = 100, by = 10) %>% 
   plot()
 ```
-
-### Eviter les points superposés
-
-```{r}
-paracou2015_6_wmppp %>% 
-  rjitter() %>% 
-  autoplot()
-```
-
 
 ### Cas particulier de la parcelle 16
 
@@ -417,12 +462,12 @@ paracou2015_16 %>%
   # Renommer les colonnes   
   rename(     
     X = Xplot,
-    Y = Yplot,  
-    PointType = BinomialName,      
+    Y = Yplot,
+    PointType = BinomialName,
     PointWeight = G
   ) %>%
   wmppp(
-    window = owin(xrange = c(0, 500), yrange = c(0, 500)),     
+    window = owin(xrange = c(0, 500), yrange = c(0, 500)),
     unitname = c("metre", "metres") 
   ) %>% 
   # Déplacement les points pour éviter la superposition
@@ -496,7 +541,7 @@ Paracou2015_phylo %>%
 # Vérification des valeurs de distances
 hist(Paracou2015_phylo_dist)
 ``` 
-La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
 
+La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
 
 ## Références
