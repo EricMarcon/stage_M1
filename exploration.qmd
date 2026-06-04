@@ -453,7 +453,7 @@ read_csv2("data/Paracou2015.csv") %>%
   # Suppression des groupes
   ungroup() %>% 
   # Nécessite des facteurs
-  mutae_if(is.character, as.factor) %>% 
+  mutate_if(is.character, as.factor) %>% 
   # Création de la phylogénie (syntaxe du package ape)
   {as.phylo(~Family/Genus/BinomialName, data = ., collapse = FALSE)} %>% 
   # Longueurs des branches identiques
