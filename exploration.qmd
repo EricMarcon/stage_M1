@@ -365,8 +365,31 @@ Recréation de `paracou2015` :
 
 ```{r}
 read_csv2(file = "data/Paracou2015.csv") %>% 
+  # Cas particulier: le genre empêche la création de la phylogénie
+  mutate(
+    Genus = str_replace(
+      Genus, 
+      pattern = "Indet.FabaceaeCaesalpinioideae\\(mimosoid_clade\\)",
+      replacement = "Indet.mimosoid_clade"
+    )
+  ) %>% 
   # Noms binomiaux
   mutate(BinomialName = paste(Genus, Species)) %>% 
+  # Cas particulier de nom > 50 caractères, empêche la création de la phylogénie
+  mutate(
+    BinomialName = str_replace(
+      BinomialName, 
+      pattern = "Indet.FabaceaeCaesalpinioideae\\(mimosoid_clade\\) Indet\\.",
+      replacement = "Indet.mimosoid_clade Indet."
+    )
+  ) %>% 
+  mutate(
+    BinomialName = str_replace(
+      BinomialName, 
+      pattern = "Indet.FabaceaeCaesalpinioideae\\(mimosoid_clade\\) Indet\\.",
+      replacement = "Indet.mimosoid_clade Indet."
+    )
+  ) %>% 
   # Suppression des arbres morts
   filter(CodeAlive == 1) %>% 
   # Sélection des colonnes utiles
@@ -488,9 +511,7 @@ Création d'une phylogénie à partir de la taxonomie.
 
 ```{r}
 library("ape")
-read_csv2("data/Paracou2015.csv") %>% 
-  # Suppression des indéterminés
-  filter(BinomialName != "Indet.") %>% 
+paracou2015 %>% 
   # Ne conserver qu'une seule ligne par espèce
   group_by(Family, Genus, BinomialName) %>% 
   # Comptage pour permettre le regroupement
@@ -540,8 +561,9 @@ Paracou2015_phylo %>%
 
 # Vérification des valeurs de distances
 hist(Paracou2015_phylo_dist)
-``` 
+```
 
-La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles. La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
+La distance vaut 0 entre arbres de la même espèce (diagonale de la matrice, absente de l'objet dist), 1 dans le même genre, 2 dans la même famille, 3 entre familles.
+La grande majorité des `r 635 * 634 / 2`paires d'espèces sont de familles différentes.
 
 ## Références
